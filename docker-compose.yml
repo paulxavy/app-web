@@ -1,0 +1,75 @@
+version: '3'
+services:
+  postgres-sql:
+    image: postgres:alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: distribuida
+    ports:
+      - 5433:5432
+  app-book:
+    image: jaimesalvador/book:1.0.0
+    environment:
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_URL: jdbc:postgresql://postgres-sql/distribuida
+    labels:
+      - "traefik.enable=true"
+      #- "traefik.http.routers.app-book.rule=PathPrefix(`/app-book`)"
+      #- "traefik.http.routers.app-book.entrypoints=web"
+      - "traefik.http.routers.app-book.rule=PathPrefix(`/books/`)"
+      - "traefik.http.services.app-book.loadbalancer.server.port=7001"
+    depends_on:
+      - postgres-sql
+    deploy:
+      replicas: 3
+    #ports:
+     # - 7001:7004
+    expose:
+      - 7001
+  app-author:
+    image: jaimesalvador/author:1.0.0
+    environment:
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_URL: jdbc:postgresql://postgres-sql/distribuida
+    labels:
+      - "traefik.enable=true"
+      #- "traefik.http.routers.app-author.rule=PathPrefix(`/app-author`)"
+      #- "traefik.http.routers.app-author.entrypoints=web"
+      - "traefik.http.routers.app-author.rule=PathPrefix(`/authors/`)"
+      - "traefik.http.services.app-author.loadbalancer.server.port=8081"
+
+    depends_on:
+      - postgres-sql
+    deploy:
+      replicas: 2
+    #ports:
+    #  - 8081:8083
+    expose:
+      - 8081
+  app-web:
+    image: jaimesalvador/web:1.0.0
+    environment:
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_URL: jdbc:postgresql://postgres-sql/distribuida
+    depends_on:
+      - postgres-sql
+    deploy:
+      replicas: 1
+    ports:
+      - 8080:4567
+  traefik:
+    image: "traefik:v3.0"
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=true"
+    ports:
+      - "80:80" # localhost : entrypoint on docker e.g:  4545:8888
+      - "8081:8080"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+
